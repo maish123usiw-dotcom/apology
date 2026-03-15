@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I'm Sorry | Interactive Apology</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; background: #020617; font-family: 'Inter', sans-serif; }
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+        #ui {
+            position: relative;
+            z-index: 10;
+            height: 100vh;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 12vh;
+            pointer-events: none;
+        }
+        .glass-card { 
+            pointer-events: auto; 
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #noBtn { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; }
+        .heart-beat { animation: heartbeat 1.5s ease-in-out infinite; }
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="glass-card p-10 rounded-[2.5rem] text-center shadow-2xl mx-4 max-w-sm">
+            <h1 class="text-white text-4xl font-black mb-3 tracking-tighter">I'm so sorry.</h1>
+            <p class="text-slate-400 mb-8 leading-relaxed">I know I messed up. <br>Can we please talk and make it right?</p>
+            <div class="flex gap-4 justify-center">
+                <button onclick="accept()" class="bg-indigo-500 text-white px-10 py-4 rounded-2xl font-bold hover:bg-indigo-400 active:scale-95 transition-all shadow-lg shadow-indigo-500/20">Yes</button>
+                <button id="noBtn" onmouseover="dodge()" onclick="dodge()" class="bg-slate-800 text-slate-400 px-10 py-4 rounded-2xl font-bold border border-slate-700">No</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, boy, stars, heart;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            // 1. STARFIELD BACKGROUND
+            const starGeom = new THREE.BufferGeometry();
+            const starCount = 1500;
+            const posArray = new Float32Array(starCount * 3);
+            for(let i=0; i < starCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 100;
+            }
+            starGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const starMat = new THREE.PointsMaterial({ size: 0.05, color: 0xffffff });
+            stars = new THREE.Points(starGeom, starMat);
+            scene.add(stars);
+
+            // 2. THE BOY CHARACTER
+            boy = new THREE.Group();
+            const skin = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const clothes = new THREE.MeshStandardMaterial({ color: 0x6366f1 });
+            const hair = new THREE.MeshStandardMaterial({ color: 0x2d1b0d });
+
+            // Body parts
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 1.2, 16), clothes);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 32), skin);
+            head.position.y = 1.2;
+            const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.48, 32, 32, 0, Math.PI*2, 0, Math.PI/1.8), hair);
+            hairCap.position.y = 1.25;
+            
+            const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.6, 4, 8), skin);
+            armL.position.set(-0.6, 0.7, 0.1);
+            armL.rotation.z = 0.4;
+            
+            const armR = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.6, 4, 8), skin);
+            armR.position.set(0.6, 0.7, 0.1);
+            armR.rotation.z = -0.4;
+
+            boy.add(torso, head, hairCap, armL, armR);
+            scene.add(boy);
+
+            // 3. THE HEART
+            const heartShape = new THREE.Shape();
+            heartShape.moveTo(0,0);
+            heartShape.bezierCurveTo(0,0.3, 0.5,0.8, 1,0.8);
+            heartShape.bezierCurveTo(1.5,0.8, 1.5,0, 0,-1);
+            heartShape.bezierCurveTo(-1.5,0, -1.5,0.8, -1,0.8);
+            heartShape.bezierCurveTo(-0.5,0.8, 0,0.3, 0,0);
+
+            const heartExtrude = new THREE.ExtrudeGeometry(heartShape, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.05 });
+            heart = new THREE.Mesh(heartExtrude, new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+            heart.scale.set(0.3, 0.3, 0.3);
+            heart.position.set(0, 2.2, 0);
+            heart.rotation.z = Math.PI;
+            scene.add(heart);
+
+            // 4. LIGHTS
+            const light = new THREE.PointLight(0x6366f1, 2);
+            light.position.set(2, 3, 4);
+            scene.add(light, new THREE.AmbientLight(0xffffff, 0.5));
+
+            camera.position.set(0, 1.5, 6);
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = Date.now() * 0.0015;
+
+            // Character Bowing Animation
+            boy.rotation.x = Math.sin(t) * 0.1 + 0.1;
+            boy.position.y = Math.sin(t * 0.5) * 0.1;
+
+            // Floating Heart Animation
+            heart.position.y = 2.3 + Math.sin(t * 2) * 0.15;
+            heart.rotation.y += 0.02;
+
+            // Star rotation
+            stars.rotation.y += 0.0005;
+
+            renderer.render(scene, camera);
+        }
+
+        function dodge() {
+            const btn = document.getElementById('noBtn');
+            const x = Math.random() * (window.innerWidth - btn.offsetWidth);
+            const y = Math.random() * (window.innerHeight - btn.offsetHeight);
+            btn.style.position = 'fixed';
+            btn.style.left = x + 'px';
+            btn.style.top = y + 'px';
+        }
+
+        function accept() {
+            document.body.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-screen bg-slate-950 text-white p-6 text-center">
+                    <div class="text-9xl mb-6 heart-beat">💖</div>
+                    <h2 class="text-5xl font-black mb-4 bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent">Thank You!</h2>
+                    <p class="text-slate-400 text-lg">I'm so glad. Let's talk soon.</p>
+                </div>`;
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>
